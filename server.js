@@ -123,5 +123,24 @@ function deleteHandler(req, res) {
     });
   });
 }
+//............................
+
+app.put("/updatebook/:id", updateBookHandler);
+
+function updateBookHandler(req, res){
+  let bookId = req.params.id;
+  let { title, description, status, email} = req.body
+  console.log(bookId);
+  
+  booksModal.findByIdAndUpdate(bookId,{title, description, status, email}, (err, result)=>{
+    booksModal.find({ email: email }, (err, result) => {
+      if (err) {
+        console.log(err);
+      } else {
+        res.send(result);
+      }
+    });
+  })
+}
 
 app.listen(PORT, () => console.log(`listening on ${PORT}`));
