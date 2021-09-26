@@ -3,100 +3,59 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
-
-const app = express();
-app.use(cors());
-
-const PORT = process.env.PORT;
-
-app.get("/test", (request, response) => {
-  response.send("test request received");
-});
-app.use(express.json());
-//..................MONGOOOS...................
+const server = express();
+server.use(cors());
+server.use(express.json());
+const { default: axios } = require("axios");
+let PORT = 3001;
 const mongoose = require("mongoose");
-let booksModal;
+let movieModal;
 
 main().catch((err) => console.log(err));
 
 async function main() {
-  await mongoose.connect(process.env.MONGO_DB);
+  await mongoose.connect(
+    `mongodb://Omar_Humamah:123Omar321@omarcluster-shard-00-00.reqod.mongodb.net:27017,omarcluster-shard-00-01.reqod.mongodb.net:27017,omarcluster-shard-00-02.reqod.mongodb.net:27017/favMove?ssl=true&replicaSet=atlas-104q19-shard-0&authSource=admin&retryWrites=true&w=majority`
+  );
 
-  const bookSchema = new mongoose.Schema({
+  const movieSchema = new mongoose.Schema({
     title: String,
+    img: String,
     description: String,
-    status: String,
     email: String,
   });
 
-  booksModal = mongoose.model("books", bookSchema);
-
-  // will uncomment this \/ function whin we need to save
-  //seedData();
+  movieModal = mongoose.model("favMovie", movieSchema);
 }
 
-//.....\\.. to seed the modal..//......
-async function seedData() {
-  const cleanCode = new booksModal({
-    title: "Clean Code: A Handbook of Agile Software Craftsmanship",
-    description:
-      "Programming is about polishing the craft with years of trial and error. I wish there was a way to save yourself from all the hard work by learning from the mistakes of other programmers? Fortunately, there is, and it is known to the world as the Clean Code: A Handbook of Agile Software Craftsmanship book from the legendary Uncle Bob.",
-    status: true,
-    email: "omar.nabeel.h@gmail.com",
-  });
-  const introductionToAlgorithms = new booksModal({
-    title: "Introduction to Algorithms",
-    description:
-      "The name of the book is self-explanatory. It is what the title suggests, i.e., Introduction to Algorithms. Also known as CLRS, a reference to the last name of the authors of the book, it goes in-depth into a range of algorithms divided across several self-contained chapters.",
-    status: false,
-    email: "omar.nabeel.h@gmail.com",
-  });
-  const codeComplete = new booksModal({
-    title: "Code Complete: A Practical Handbook of Software Construction",
-    description:
-      "Want to know how to write robust code irrespective of the architecture of a programming language? Then consider reading the Code Complete: A Practical Handbook of Software Construction. It comprehensively covers all the aspects of the structure of good code.",
-    status: true,
-    email: "omar.nabeel.h@gmail.com",
-  });
+server.get("/movies", gitMovies);
+server.post("/addFav", addToFav);
+server.get("/getFav", gitFavMovies);
+server.delete("/delete/:id", deleteMove);
+server.put("/update/:id", updateMovie);
 
-  await cleanCode.save();
-  await introductionToAlgorithms.save();
-  await codeComplete.save();
-}
-//..............FINNISH WITH DB...............................
-
-//..............ROUTS.........................................
-app.get("/books", getBookHandler);
-
-function getBookHandler(request, response) {
-  let email = request.query.email;
-  booksModal.find({ email: email }, (err, result) => {
-    if (err) {
-      console.log(err);
-    } else {
-      response.send(result);
-      console.log(result);
-    }
-  });
+function gitMovies(req, res) {
+  axios
+    .get(
+      `https://api.themoviedb.org/3/movie/popular?api_key=d392d3ce0f9ceefcfd09b99d97173b24&language=en-US&page=1`
+    )
+    .then((result) => {
+      res.send(result.data.results);
+    })
+    .catch((err) => console.log(err));
 }
 
-//..................and that's it...............................
+async function addToFav(req, res) {
+  let { title, img, description, email } = req.body;
 
-app.post("/addbook", addBookHandler);
-
-async function addBookHandler(req, res) {
-  console.log("hi");
-  console.log(req.body);
-  const { title, description, status, email } = req.body;
-
-  await booksModal.create({
+  await movieModal.create({
     title: title,
+    img: img,
     description: description,
-    status: status,
     email: email,
   });
 
-  booksModal.find({ email: email }, (err, result) => {
+  movieModal.find({ email }, (err, result) => {
     if (err) {
       console.log(err);
     } else {
@@ -105,16 +64,24 @@ async function addBookHandler(req, res) {
   });
 }
 
-//.................................
-
-app.delete("/deletebook/:id", deleteHandler);
-
-function deleteHandler(req, res) {
-  let bookId = req.params.id;
+function gitFavMovies(req, res) {
   let email = req.query.email;
 
-  booksModal.deleteOne({ _id: bookId }, (err, result) => {
-    booksModal.find({ email: email }, (err, result) => {
+  movieModal.find({ email }, (err, result) => {
+    if (err) {
+      console.log(err);
+    } else {
+      res.send(result);
+    }
+  });
+}
+
+function deleteMove(req, res) {
+  let id = req.params.id;
+  let email = req.query.email;
+
+  movieModal.deleteOne({ _id: id }, (err, result) => {
+    movieModal.find({ email }, (err, result) => {
       if (err) {
         console.log(err);
       } else {
@@ -123,24 +90,24 @@ function deleteHandler(req, res) {
     });
   });
 }
-//............................
 
-app.put("/updatebook/:id", updateBookHandler);
+function updateMovie(req, res) {
+  let id = req.params.id;
+  let { title, description, email } = req.body;
 
-function updateBookHandler(req, res){
-  let bookId = req.params.id;
-  let { title, description, status, email} = req.body
-  console.log(bookId);
-  
-  booksModal.findByIdAndUpdate(bookId,{title, description, status, email}, (err, result)=>{
-    booksModal.find({ email: email }, (err, result) => {
-      if (err) {
-        console.log(err);
-      } else {
-        res.send(result);
-      }
-    });
-  })
+  movieModal.findByIdAndUpdate(
+    { _id: id },
+    { title, description, email },
+    (err, result) => {
+      movieModal.find({ email }, (err, result) => {
+        if (err) {
+          console.log(err);
+        } else {
+          res.send(result);
+        }
+      });
+    }
+  );
 }
 
-app.listen(PORT, () => console.log(`listening on ${PORT}`));
+server.listen(PORT, () => console.log(`listening on 3001`));
